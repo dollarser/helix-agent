@@ -46,17 +46,15 @@ class ToolPipeline(
 ) {
     internal val mcpDiscovery =
         com.helix.app.mcp
-            .McpToolDiscovery(registry) { sessionId, descriptor ->
-                modelAvailable(sessionId, descriptor)
-            }
+            .McpToolDiscovery(registry, ::modelAvailability)
 
-    /** A stale discovery window must not expose a retired or unselected native registration. */
-    internal fun modelAvailable(
-        sessionId: String,
-        descriptor: ToolDescriptor,
-    ): Boolean =
-        (disabledToolFilter?.invoke(sessionId, descriptor) ?: true) &&
-            (plugins?.modelAvailable(descriptor, sessionId) ?: (descriptor.origin !is ToolOrigin.PluginOrigin))
+    internal fun modelAvailability(sessionId: String): (ToolDescriptor) -> Boolean {
+        val native = plugins?.modelAvailability(sessionId)
+        return { descriptor ->
+            (disabledToolFilter?.invoke(sessionId, descriptor) ?: true) &&
+                (native?.invoke(descriptor) ?: (descriptor.origin !is ToolOrigin.PluginOrigin))
+        }
+    }
 
     private var mcpFactsProvider:
         ((String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?)? = null

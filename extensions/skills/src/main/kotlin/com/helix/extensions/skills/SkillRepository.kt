@@ -28,6 +28,8 @@ data class SkillListItem(
     val invocation: SkillInvocationPolicy = SkillInvocationPolicy(),
     val independentlySelectable: Boolean = true,
     val independentEnabled: Boolean = enabled,
+    /** True for an effective user/owner selection, not implicit built-in availability. */
+    val explicitlyEnabled: Boolean = false,
 )
 
 data class SkillResource(
@@ -87,14 +89,11 @@ class SkillRepository(
             records.entries
                 .filter { (key, _) -> sourceAvailable(key, sessionId) }
                 .map { (key, record) ->
-                    SkillListItem(
-                        key,
-                        record.document.catalogEntry.description,
-                        isEnabled(key, sessionId),
-                        record.document.invocation,
-                        key.ownerId.isEmpty() && key !in contributionKeys && independentlySelectable(key),
-                        key !in contributionKeys && independentlyEnabled(key, sessionId),
-                    )
+                    if (key in contributionKeys) {
+                        nativeItem(key, record.document, isEnabled(key, sessionId))
+                    } else {
+                        selectionItem(key, record.document, sessionId)
+                    }
                 }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
         }
 
@@ -116,30 +115,9 @@ class SkillRepository(
             val documents = records.filterKeys { it !in contributionKeys }.mapValues { it.value.document } + contributed
 
             fun items(session: String?): List<SkillListItem> =
-                documents
-                    .mapNotNull { (key, document) ->
-                        val available =
-                            if (key in contributed) {
-                                key in if (session == null) native.installedAvailable else native.sessionAvailable
-                            } else {
-                                sourceAvailable(key, session)
-                            }
-                        if (!available) return@mapNotNull null
-                        val enabled =
-                            if (key in contributed) {
-                                true
-                            } else {
-                                pluginAvailable(key, session) || independentlyEnabled(key, session)
-                            }
-                        SkillListItem(
-                            key,
-                            document.catalogEntry.description,
-                            enabled,
-                            document.invocation,
-                            key.ownerId.isEmpty() && key !in contributed && independentlySelectable(key),
-                            key !in contributed && independentlyEnabled(key, session),
-                        )
-                    }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
+                native.projectItems(documents, contributed.keys, session) { key, document ->
+                    if (sourceAvailable(key, session)) selectionItem(key, document, session) else null
+                }
             val sessionItems = items(sessionId)
             val modelItems = sessionItems.filter { modelEligible(documents.getValue(it.key), it.key, activations) }
             val active =
@@ -515,10 +493,33 @@ class SkillRepository(
         key: SkillKey,
         sessionId: String?,
     ): Boolean {
-        if (key.ownerId.isNotEmpty() || !independentlySelectable(key)) return false
-        val session = sessionId?.let { sessionOverrides[it]?.get(key) }
-        return session
-            ?: (expertEnablement(key, sessionId) || (globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)))
+        val selection = independentSelection(key, sessionId)
+        return selection ?: (key.source == SkillSource.BUILT_IN)
+    }
+
+    private fun selectionItem(
+        key: SkillKey,
+        document: SkillDocument,
+        sessionId: String?,
+    ): SkillListItem {
+        val selectable = key.ownerId.isEmpty() && independentlySelectable(key)
+        return document.selectedItem(
+            key,
+            selectable,
+            independentSelection(key, sessionId, selectable),
+            pluginAvailable(key, sessionId),
+        )
+    }
+
+    /** Null means no explicit decision: only then can the implicit built-in default apply. */
+    private fun independentSelection(
+        key: SkillKey,
+        sessionId: String?,
+        selectable: Boolean = key.ownerId.isEmpty() && independentlySelectable(key),
+    ): Boolean? {
+        if (!selectable) return false
+        return sessionId?.let { sessionOverrides[it]?.get(key) }
+            ?: if (expertEnablement(key, sessionId)) true else globalOverrides[key]
     }
 
     /** Replace host content facts; stale revisions cannot remain readable through an old key. */

@@ -67,6 +67,49 @@ class McpToolDiscoveryTest {
         assertFalse(discovery.visible("other", registry.all(), defaults).any { it.name.value.startsWith("session_") })
     }
 
+    @Test fun skillReadersAndManagementCanBeDiscoveredWithoutEagerSchemas() {
+        com.helix.extensions.skills.SkillTools
+            .descriptors()
+            .forEach(::registerFixture)
+        val all = registry.all()
+        assertEquals(listOf(search), discovery.visible("s", all))
+        for (name in listOf("skills_list", "skills_enable", "skills_read", "skills_read_resource")) {
+            assertEquals(listOf(name), discovery.search("s", name, 1).map { it.name.value })
+            assertTrue(discovery.visible("s", all).any { it.name.value == name })
+        }
+        assertEquals(listOf(search), discovery.visible("other", all))
+    }
+
+    @Test fun discoveringGoalMutationLoadsOnlyItsAdmittedReadPrerequisiteInThatSession() {
+        com.helix.app.goal.GoalLifecycleTools
+            .register(registry) { error("Discovery must not execute a tool") }
+        val all = registry.all()
+        for (name in listOf("goal_create", "goal_update")) {
+            val session = "test-$name"
+            assertEquals(listOf(search), discovery.visible(session, all))
+            assertEquals(listOf(name), discovery.search(session, name, 4).map { it.name.value })
+            val exposed = discovery.visible(session, all).map { it.name.value }.toSet()
+            assertEquals(setOf("tools_search", name, "goal_get"), exposed)
+        }
+        val admitted = all.filterNot { it.name.value == "goal_get" }
+        discovery.visible("restricted", admitted)
+        discovery.search("restricted", "goal_update", 4)
+        assertFalse(discovery.visible("restricted", admitted).any { it.name.value == "goal_get" })
+        assertEquals(listOf(search), discovery.visible("other", all))
+    }
+
+    @Test fun sharedConversationLookupDiscoversTargetDirectoryWithoutDefaultExposure() {
+        com.helix.app.chat.SessionToolDescriptors.names.forEach {
+            registerFixture(
+                com.helix.app.chat.SessionToolDescriptors
+                    .descriptor(it),
+            )
+        }
+        val matches = discovery.search("s", "another shared conversation", 4)
+        assertTrue(matches.any { it.name.value == "session_list" })
+        assertFalse(discovery.visible("other", registry.all(), emptySet()).any { it.name.value == "session_list" })
+    }
+
     @Test fun fileSearchToolsKeepFileCategoryAndRespectAvailability() {
         val glob =
             com.helix.tools.files.GlobTool

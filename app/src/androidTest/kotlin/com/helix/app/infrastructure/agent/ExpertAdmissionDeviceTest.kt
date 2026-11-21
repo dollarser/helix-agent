@@ -3,8 +3,10 @@ package com.helix.app.infrastructure.agent
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.application.context.SystemPromptRequest
 import com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec
 import com.helix.app.infrastructure.agent.createRoomTurnEngine
+import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.test.bindFixtureLifecycle
 import com.helix.app.test.fixtureAdmissionCommand
 import com.helix.app.test.settleFixtureTerminal
@@ -20,7 +22,9 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ExpertProfile
+import com.helix.core.workspace.FileScopePath
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 import java.time.Instant
@@ -45,6 +49,10 @@ class ExpertAdmissionDeviceTest {
 
             val secondExpert = ExpertProfile("expert-b", "Reviewer B", "Prefer implementation review.")
             storage.sessionExperts.setForSession(SESSION, secondExpert, 2)
+            val facts = StoredSystemPromptFactsProvider(storage, { "" })
+            val preview = SystemPromptRequest(SESSION, null, FileScopePath("workspace", ""), AgentMode.ACT, emptySet())
+            assertEquals(secondExpert.displayName, facts.collect(preview).expert?.displayName)
+            assertEquals(firstExpert.displayName, facts.collect(preview.copy(turnId = "turn-a")).expert?.displayName)
 
             assertEquals(
                 firstExpert,
@@ -58,6 +66,8 @@ class ExpertAdmissionDeviceTest {
                 TurnRuntimeRecordCodec.decode(storage.turnRuntimeRecords.resolve("turn-b")).expert,
             )
             assertEquals(permission, storage.sessionPermissionConfigs.forSession(SESSION))
+            storage.turns.start("no-runtime-record", SESSION, 4)
+            assertNull(facts.collect(preview.copy(turnId = "no-runtime-record")).expert)
         }
 
     private fun admit(

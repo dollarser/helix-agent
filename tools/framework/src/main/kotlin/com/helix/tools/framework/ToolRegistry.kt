@@ -45,6 +45,9 @@ class ToolRegistry(
 
     fun snapshot(): List<RegisteredToolBinding> = store.snapshot()
 
+    /** Immutable owner snapshot, replaced atomically with the admission bindings. */
+    fun ownerBindings(owner: String): List<RegisteredToolBinding> = store.ownerBindings(owner)
+
     fun resolveBinding(
         name: ToolName,
         version: ToolVersion,

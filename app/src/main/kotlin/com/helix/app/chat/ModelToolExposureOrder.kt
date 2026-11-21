@@ -24,18 +24,19 @@ internal object ModelToolExposureOrder {
             "view_image",
         ).withIndex().associate { (index, name) -> name to index }
 
-    fun defaultNames(preferred: Set<String>): Set<String> {
+    fun defaultNames(
+        preferred: Set<String>,
+        goalNames: Set<String> = emptySet(),
+        skillNames: Set<String> = emptySet(),
+    ): Set<String> {
         val shared =
-            (coreFiles.keys - "files_stat") + GoalLifecycleTools.names +
+            (coreFiles.keys - "files_stat") + goalNames + skillNames +
                 setOf(
                     "tools_search",
                     "ask_user",
                     ToolResultReadTool.NAME,
                     "plan_submit",
                     "todo_write",
-                    "skills_enable",
-                    "skills_read",
-                    "skills_read_resource",
                 )
         return shared + preferred + if (preferred.isEmpty()) setOf("code_javascript_run") else emptySet()
     }

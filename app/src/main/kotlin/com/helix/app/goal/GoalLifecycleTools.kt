@@ -19,6 +19,19 @@ import kotlin.time.Duration.Companion.seconds
 /** Closed, session-bound metadata operations; never file writes or tool authorization. */
 internal object GoalLifecycleTools {
     val names = setOf("goal_create", "goal_get", "goal_update", GoalReportTool.NAME)
+
+    fun directNames(
+        boundRun: Boolean,
+        unfinished: Boolean,
+        goalMode: Boolean,
+    ): Set<String> =
+        when {
+            boundRun -> setOf("goal_get", "goal_update", GoalReportTool.NAME)
+            unfinished -> setOf("goal_get", "goal_update")
+            goalMode -> setOf("goal_get", "goal_create")
+            else -> emptySet()
+        }
+
     private const val BUDGETS = """{"type":"object","properties":{
         "max_goal_rounds":{"type":"integer","minimum":1,
         "description":"Maximum automatic rounds; override only when the user requests a budget change."}
@@ -90,6 +103,7 @@ internal object GoalLifecycleTools {
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                     origin = ToolOrigin.BuiltInOrigin,
                     discovery = ToolDiscoveryHints(category = "goals"),
+                    discoveryCompanions = if (name == "goal_get") emptySet() else setOf(ToolName("goal_get")),
                 )
 
             registry.register(

@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.goal.GoalLifecycleTools
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -183,9 +184,6 @@ class ModelToolExposureOrderTest {
                     "ui_screenshot",
                     "ui_gesture",
                     "device_open_url",
-                    "skills_read",
-                    "skills_read_resource",
-                    "skills_enable",
                 ),
             ),
         )
@@ -199,7 +197,33 @@ class ModelToolExposureOrderTest {
         assertTrue("http_fetch" !in nonUi)
         assertTrue("skills_list" !in names)
         assertTrue("skills_disable" !in names)
-        assertTrue("skills_read_resource" in names)
+        assertTrue(names.none { it.startsWith("skills_") || it in GoalLifecycleTools.names })
+    }
+
+    @Test fun goalSurfaceTracksTheSessionAndTheLiveRoundWithoutInferringTextIntent() {
+        fun names(
+            bound: Boolean,
+            unfinished: Boolean,
+            goalMode: Boolean,
+        ) = ModelToolExposureOrder
+            .defaultNames(
+                emptySet(),
+                goalNames = GoalLifecycleTools.directNames(bound, unfinished, goalMode),
+            ).intersect(GoalLifecycleTools.names)
+
+        assertEquals(emptySet<String>(), names(false, false, false))
+        assertEquals(setOf("goal_get", "goal_create"), names(false, false, true))
+        assertEquals(setOf("goal_get", "goal_update"), names(false, true, false))
+        assertEquals(setOf("goal_get", "goal_update"), names(false, true, true))
+        assertEquals(setOf("goal_get", "goal_update", "goal_report"), names(true, true, false))
+    }
+
+    @Test fun directSkillContractsDoNotEnableManagementOrDisplaceNormalTools() {
+        val skillReads = setOf("skills_read", "skills_read_resource")
+        val base = ModelToolExposureOrder.defaultNames(emptySet())
+        val withSkills = ModelToolExposureOrder.defaultNames(emptySet(), skillNames = skillReads)
+        assertEquals(base + skillReads, withSkills)
+        assertTrue("skills_enable" !in withSkills)
     }
 
     private fun descriptor(name: String) =

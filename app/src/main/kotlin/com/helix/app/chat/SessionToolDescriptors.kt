@@ -67,8 +67,10 @@ internal object SessionToolDescriptors {
             }
 
             "session_history" -> {
-                "List saved user/assistant text, newest first, including compacted history and shared references. " +
-                    "Default scope is this conversation. With targetSessionId, continue with the returned cursor; " +
+                "List saved user/assistant text, newest first. " +
+                    "For another conversation with unknown ID, first use session_list. " +
+                    "Default scope is this conversation, including compacted history and shared references. " +
+                    "With targetSessionId, continue with the returned cursor; " +
                     "without targetSessionId, pass nextBeforeSequence as beforeSequence for older pages. " +
                     "referenceMessageId and referenceHash select a fixed source " +
                     "explicitly shared with this conversation. Use session_read for bodies. " +
@@ -103,7 +105,10 @@ internal object SessionToolDescriptors {
             }
 
             "session_list" -> {
-                "List only user-authorized target metadata, without message bodies. Continue with cursor."
+                "Find another conversation shared with this one. " +
+                    "List only user-authorized targets, without message bodies. " +
+                    "Use an entry with readHistory for session_history/search/read; " +
+                    "pass its sessionId as targetSessionId. Continue with cursor."
             }
 
             "session_archive", "session_restore" -> {

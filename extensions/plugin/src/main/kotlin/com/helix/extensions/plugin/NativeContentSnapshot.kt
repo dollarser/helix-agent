@@ -26,6 +26,22 @@ internal fun SkillDocument.presentationKey() =
         SkillKey(it.source, it.name, it.contentHash, it.ownerId)
     }
 
+/** Called only for enabled model-readable identities; ambient host help is discovery, not selection. */
+internal fun com.helix.extensions.skills.SkillListItem.catalogContribution(
+    document: SkillDocument,
+): PluginContentContribution.SkillCatalog? {
+    val hostHelp =
+        key.source == com.helix.extensions.skills.SkillSource.BUILT_IN && key.ownerId.isEmpty() &&
+            document.hostCatalogued
+    return if (explicitlyEnabled ||
+        hostHelp
+    ) {
+        PluginContentContribution.SkillCatalog(key, description, selected = explicitlyEnabled)
+    } else {
+        null
+    }
+}
+
 fun presentationContributions(
     native: List<NativeContentSnapshot>,
     skills: com.helix.extensions.skills.SkillPresentationSnapshot,
@@ -49,11 +65,7 @@ fun presentationContributions(
         }
         skills.session.filter { it.enabled && it.key in eligible }.forEach { item ->
             val document = skills.documents.getValue(item.key)
-            if (document.catalogEntry.source == com.helix.extensions.skills.SkillSource.BUILT_IN &&
-                item.key.ownerId.isEmpty() && document.hostCatalogued
-            ) {
-                add(PluginContentContribution.SkillCatalog(item.key, item.description))
-            }
+            item.catalogContribution(document)?.let(::add)
         }
         owners.forEach { entry ->
             entry.documents.filter { it.presentationKey() in eligible }.forEach { document ->

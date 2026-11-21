@@ -62,10 +62,10 @@ class AgentLayerBoundariesTest(unittest.TestCase):
              'com.helix.app.approval.ApprovalUiMapper'),
         ))
 
-    def test_goal_and_tool_application_do_not_reference_storage_adapters(self):
+    def test_application_facts_and_commands_do_not_reference_storage_adapters(self):
         # Check fully qualified uses as well as imports: an inline constructor must not
         # bypass the port boundary. Production adapters belong in infrastructure.
-        for area in ('agent', 'tools'):
+        for area in ('agent', 'tools', 'context'):
             directory = ROOT / f'app/src/main/kotlin/com/helix/app/application/{area}'
             sources = list(directory.rglob('*.kt'))
             self.assertTrue(sources)

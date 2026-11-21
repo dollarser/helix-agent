@@ -6,7 +6,6 @@ import com.helix.core.agent.PromptScope
 import com.helix.core.agent.PromptSection
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.PromptSource
-import com.helix.core.storage.repository.ExpertProfile
 
 /** Pure request-facts to prompt mapping; all storage and workspace reads happen before assembly. */
 internal class SystemPromptContext(
@@ -46,7 +45,7 @@ internal class SystemPromptContext(
                 },
             )
         }
-        registerExpert(registry, request.expert)
+        registerExpert(registry, facts.expert)
         registerProject(registry, facts.project)
         registerMemory(registry, facts.memory, toolNames)
         val goal = facts.goal
@@ -64,7 +63,7 @@ internal class SystemPromptContext(
 
     private fun registerExpert(
         registry: PromptRegistry,
-        expert: ExpertProfile?,
+        expert: ExpertPromptFacts?,
     ) {
         expert?.let { profile ->
             registry.register(
@@ -80,12 +79,12 @@ internal class SystemPromptContext(
                         appendLine("Behavior guidance:")
                         appendLine(profile.instruction)
                         profile.recommendedMode?.let { appendLine("Suggested mode: ${it.name}") }
-                        if (profile.recommendedSkillIds.isNotEmpty()) {
-                            appendLine("Linked skills: ${profile.recommendedSkillIds.size}; consult the skill catalog.")
+                        if (profile.skillCount > 0) {
+                            appendLine("Linked skills: ${profile.skillCount}; consult the skill catalog.")
                         }
-                        if (profile.recommendedConnectorIds.isNotEmpty()) {
+                        if (profile.connectorCount > 0) {
                             appendLine(
-                                "Linked plugins: ${profile.recommendedConnectorIds.size}; consult tool discovery.",
+                                "Linked plugins: ${profile.connectorCount}; consult tool discovery.",
                             )
                         }
                         appendLine(

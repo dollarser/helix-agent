@@ -29,8 +29,13 @@ internal class McpToolDiscovery(
      * model schema and the execution entry use, so a disable is removed from search and the
      * loaded window at the same moment it is refused at the dispatcher.
      */
-    private val availability: (sessionId: String, descriptor: ToolDescriptor) -> Boolean = { _, _ -> true },
+    private val availability: (String) -> (ToolDescriptor) -> Boolean,
 ) {
+    constructor(
+        registry: ToolRegistry,
+        available: (String, ToolDescriptor) -> Boolean = { _, _ -> true },
+    ) : this(registry, { session: String -> { descriptor -> available(session, descriptor) } })
+
     private val admittedWindows = LinkedHashMap<String, Set<ToolDescriptor>>(16, 0.75f, true)
     private val loaded = LinkedHashMap<String, List<ToolDescriptor>>(16, 0.75f, true)
 
@@ -102,14 +107,15 @@ internal class McpToolDiscovery(
                         .thenByDescending { it.descriptionHits }
                         .thenBy { it.descriptor.name.value },
                 )
-        val matches = selectAvailable(sessionId, ranked, limit)
-        updateWorkset(sessionId, matches)
+        val available = availability(sessionId)
+        val matches = selectAvailable(available, ranked, limit)
+        updateWorkset(sessionId, matches, available)
         while (loaded.size > MAX_SESSIONS) loaded.remove(loaded.keys.first())
         return matches
     }
 
     private fun selectAvailable(
-        sessionId: String,
+        available: (ToolDescriptor) -> Boolean,
         ranked: List<SearchCandidate>,
         limit: Int,
     ): List<ToolDescriptor> {
@@ -118,7 +124,7 @@ internal class McpToolDiscovery(
         return ranked
             .asSequence()
             .map { it.descriptor }
-            .filter { availability(sessionId, it) }
+            .filter(available)
             .take(limit)
             .toList()
     }
@@ -126,17 +132,18 @@ internal class McpToolDiscovery(
     private fun updateWorkset(
         sessionId: String,
         matches: List<ToolDescriptor>,
+        isAvailable: (ToolDescriptor) -> Boolean,
     ) {
         val current = latest()
         val previous =
             loaded[sessionId].orEmpty().filter {
                 it !in matches && it in current && admittedWindows[sessionId]?.contains(it) != false &&
-                    availability(sessionId, it)
+                    isAvailable(it)
             }
         val available =
             ToolDiscoveryWorkset.complete(matches + previous, current).filter {
                 admittedWindows[sessionId]?.contains(it) != false &&
-                    (it in matches || it in previous || availability(sessionId, it))
+                    (it in matches || it in previous || isAvailable(it))
             }
         loaded[sessionId] =
             if (matches.isEmpty()) previous else ToolDiscoveryWorkset.retain(matches, previous, available)
@@ -202,7 +209,7 @@ internal class McpToolDiscovery(
     ): List<ToolDescriptor> {
         // One availability read per candidate, outside the shared discovery-window lock.
         // Execution still performs its independent live authorization check.
-        val available = admitted.filter { availability(sessionId, it) }
+        val available = admitted.filter(availability(sessionId))
         val selected =
             synchronized(this) {
                 admittedWindows[sessionId] = available.toSet()
@@ -237,7 +244,7 @@ internal class McpToolDiscovery(
         val admitted = synchronized(this) { admittedWindows[sessionId]?.toList().orEmpty() }
         val groups =
             admitted
-                .filter { availability(sessionId, it) }
+                .filter(availability(sessionId))
                 .groupBy { ToolDiscoveryMetadata.of(it).source }
                 .toSortedMap()
         if (groups.isEmpty()) return null

@@ -2,7 +2,6 @@ package com.helix.app.application.context
 
 import com.helix.core.model.AgentMode
 import com.helix.core.model.PlanArtifact
-import com.helix.core.storage.repository.ExpertProfile
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.memory.MemoryContextSnapshot
 
@@ -13,7 +12,6 @@ internal data class SystemPromptRequest(
     val directory: FileScopePath,
     val mode: AgentMode,
     val toolNames: Set<String>,
-    val expert: ExpertProfile? = null,
 )
 
 /** Request-local values, never lazy storage/file readers and never cached across model calls. */
@@ -23,6 +21,15 @@ internal data class SystemPromptFacts(
     val memory: MemoryContextSnapshot? = null,
     val projectInstructions: String = "",
     val goal: GoalPromptFacts? = null,
+    val expert: ExpertPromptFacts? = null,
+)
+
+internal data class ExpertPromptFacts(
+    val displayName: String,
+    val instruction: String,
+    val recommendedMode: AgentMode?,
+    val skillCount: Int,
+    val connectorCount: Int,
 )
 
 internal data class ProjectPromptFacts(

@@ -248,7 +248,10 @@ internal class GoalLifecycleService(
                     ?: previous.maxGoalRounds,
         )
 
-    private companion object {
-        val TERMINAL = setOf("COMPLETED", "FAILED", "CANCELLED")
+    companion object {
+        val TERMINAL =
+            com.helix.core.model.GoalState.TERMINAL
+                .map { it.name }
+                .toSet()
     }
 }

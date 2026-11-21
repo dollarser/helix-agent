@@ -55,6 +55,11 @@ class PluginPresentationSnapshotTest {
                 .list("s")
                 .single { it.key.ownerId.isEmpty() }
                 .key
+        fixture.skills.setEnabled(independent, true, SkillEnablementScope.SESSION, "s")
+        val selected = fixture.capture()
+        assertEquals(fixture.registry.contentContributions(fixture.skills, "s", "t"), selected)
+        val catalog = selected.filterIsInstance<PluginContentContribution.SkillCatalog>()
+        assertTrue(catalog.any { it.key == independent && it.selected })
         fixture.skills.setEnabled(independent, false, SkillEnablementScope.SESSION, "s")
         val after = fixture.capture().filterIsInstance<PluginContentContribution.SkillCatalog>()
         assertEquals(setOf("second"), after.map { it.key.ownerId }.toSet())

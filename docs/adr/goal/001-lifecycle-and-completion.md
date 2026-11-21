@@ -128,3 +128,11 @@ Owner 授权统一成组工具命名，采用 `goal_create/get/update/report`，
 ## Decision history — 2026-10-30：定时结果通知
 
 定时 Worker 在原 occurrence/attempt 持久结算后，可投影一条无任务正文的本地结果通知；点击仅打开既有审阅页，不重放执行或扩大授权。通知权限关闭、渠道禁用或发送失败不改变任务结算、不触发自动重试。通知不提供准点或永久后台承诺；记录始终以任务账本为准，UNKNOWN 仅提示需要关注。
+
+## Decision history — 2026-11-20：按会话状态提供 Goal 工具
+
+普通 ACT 会话没有未结束的 Goal 时，用户可以直接用自然语言请求创建持久目标。模型按需发现 `goal_create`，宿主同时提供已准入的 `goal_get`，可先查当前目标再决定是否创建。明确选择 Goal 模式且无未结束目标时，直接提供这两个工具。已有未结束目标时直接提供 `goal_get` 和 `goal_update`，当前 Turn 绑定尚未结束的 GoalRun 时再直接提供 `goal_report`。`goal_update` 的按需发现也携带 `goal_get`。
+
+每次组装请求读取当前会话的持久状态。PLAN、只读恢复、禁用选择和调用时的真实用户请求、修订及结算检查继续生效。普通任务提到“目标”不会自动创建持久记录。
+
+验证：Developer Debug / API 36 的真实模型从普通 ACT 发现工具，随后读取并创建指定的一轮 Goal。另一次确定性生命周期测试中，模拟服务曾把 `goal_get` 结果后的 `Delivery facts` 说明当作 JSON 解析，导致后继轮失败；修正测试对业务载荷的读取后，[设备回归](../../../app/src/androidTest/kotlin/com/helix/app/ui/GoalLifecycleFlowDeviceTest.kt)验证了绑定后继轮可将 Goal 结算为 `COMPLETED`。这是测试夹具修复，不是生产授权或结算逻辑变更。

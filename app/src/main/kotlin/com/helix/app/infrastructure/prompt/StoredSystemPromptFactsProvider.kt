@@ -1,9 +1,11 @@
 package com.helix.app.infrastructure.prompt
 
+import com.helix.app.application.context.ExpertPromptFacts
 import com.helix.app.application.context.GoalPromptFacts
 import com.helix.app.application.context.ProjectPromptFacts
 import com.helix.app.application.context.SystemPromptFacts
 import com.helix.app.application.context.SystemPromptRequest
+import com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec
 import com.helix.app.memory.MemoryService
 import com.helix.core.model.OperationEffect
 import com.helix.core.model.OperationRule
@@ -43,6 +45,27 @@ internal class StoredSystemPromptFactsProvider(
             memory = memorySnapshot,
             projectInstructions = projectInstructions,
             goal = goal,
+            expert = expertFacts(request),
+        )
+    }
+
+    private fun expertFacts(request: SystemPromptRequest): ExpertPromptFacts? {
+        val turnId = request.turnId
+        val expert =
+            if (turnId == null) {
+                storage.sessionExperts.forSession(request.sessionId)
+            } else {
+                storage.turnRuntimeRecords
+                    .find(turnId)
+                    ?.let(TurnRuntimeRecordCodec::decode)
+                    ?.expert
+            } ?: return null
+        return ExpertPromptFacts(
+            displayName = expert.displayName,
+            instruction = expert.instruction,
+            recommendedMode = expert.recommendedMode,
+            skillCount = expert.recommendedSkillIds.size,
+            connectorCount = expert.recommendedConnectorIds.size,
         )
     }
 

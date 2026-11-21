@@ -14,6 +14,10 @@ internal class ToolBindingStore(
     private var preparingPublication = false
     private var entries = emptyMap<Pair<ToolName, ToolVersion>, RegisteredToolBinding>()
 
+    private val byOwner = mutableMapOf<String, List<RegisteredToolBinding>>()
+
+    fun ownerBindings(owner: String): List<RegisteredToolBinding> = synchronized(lock) { byOwner[owner].orEmpty() }
+
     fun snapshot(): List<RegisteredToolBinding> = synchronized(lock) { entries.values.toList() }
 
     fun register(candidates: List<ToolBinding>): List<RegisteredToolBinding> =
@@ -23,6 +27,9 @@ internal class ToolBindingStore(
                 validate(candidates, entries)
                 val published = candidates.map(::create)
                 entries = entries + published.associateBy { it.ref.name to it.ref.version }
+                for ((owner, additions) in published.groupBy { it.ref.owner }) {
+                    byOwner[owner] = java.util.Collections.unmodifiableList(byOwner[owner].orEmpty() + additions)
+                }
                 published
             }
         }
@@ -59,7 +66,14 @@ internal class ToolBindingStore(
             } finally {
                 preparingPublication = false
             }
-            synchronized(lock) { entries = next }
+            synchronized(lock) {
+                entries = next
+                if (published.isEmpty()) {
+                    byOwner.remove(owner)
+                } else {
+                    byOwner[owner] = java.util.Collections.unmodifiableList(published.toList())
+                }
+            }
             published
         }
 

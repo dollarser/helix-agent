@@ -2,7 +2,6 @@ package com.helix.app.skills
 
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
-import com.helix.app.chat.ModelToolExposureOrder
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NoCancellation
 import com.helix.core.model.ToolName
@@ -33,8 +32,8 @@ class HelixDocsDeviceTest {
         val repository = container.skillRepository
         val tools = container.toolPipeline.registry
 
-        assertTrue("skills_read" in ModelToolExposureOrder.defaultNames(emptySet()))
-        assertTrue("skills_read_resource" in ModelToolExposureOrder.defaultNames(emptySet()))
+        // Bundled help remains discoverable even when its readers are not initial schemas.
+        assertNotNull(tools.resolveLatest(ToolName(SkillTools.READ)))
         assertNotNull(tools.resolveLatest(ToolName(SkillTools.READ_RESOURCE)))
 
         val listing = invoke(SkillTools.LIST, buildJsonObject {})

@@ -49,6 +49,25 @@ class ToolRegistryTest {
     }
 
     @Test
+    fun ownerSnapshotTracksBatchRegistrationAndSuccessfulReplacement() {
+        val registry = ToolRegistry()
+        val first = registry.registerTest(builtIn(name = "read"))
+        val owner = bindingOwner(first.origin)
+        val initial = registry.ownerBindings(owner)
+        registry.registerTest(builtIn(name = "write"))
+        assertEquals(listOf(first), initial.map { it.descriptor })
+        val both = registry.ownerBindings(owner)
+        assertEquals(registry.snapshot(), both)
+        assertThrows(IllegalStateException::class.java) {
+            registry.replaceOwner(owner, emptyList()) { error("storage unavailable") }
+        }
+        assertTrue(both === registry.ownerBindings(owner))
+        registry.replaceOwner(owner, emptyList())
+        assertTrue(registry.ownerBindings(owner).isEmpty())
+        assertEquals(2, both.size)
+    }
+
+    @Test
     fun resolvingAnUnknownToolFails() {
         val registry = registryFromSources(listOf(BuiltInToolSource(listOf(builtIn()))))
         assertThrows(IllegalArgumentException::class.java) {

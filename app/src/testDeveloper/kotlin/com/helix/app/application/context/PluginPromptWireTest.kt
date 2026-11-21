@@ -66,7 +66,7 @@ class PluginPromptWireTest {
                     contributedDocuments = plugins::skillDocuments,
                     metadataLock = catalog.mutationLock,
                 )
-            val discovery = McpToolDiscovery(tools) { session, tool -> plugins.modelAvailable(tool, session) }
+            val discovery = McpToolDiscovery(tools, plugins::modelAvailability)
             val skillKey = skills.list("s").single().key
             for (state in listOf("selected", "unselected", "disabled", "not-ready", "restored")) {
                 catalog.selected = state != "unselected"

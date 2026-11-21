@@ -6,6 +6,7 @@ import com.helix.app.foreground.DataSyncForegroundService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
 import com.helix.app.sendTestMessage
+import com.helix.app.test.registeredFixtureToolName
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -97,7 +98,7 @@ class GoalLifecycleFlowDeviceTest {
                         answer()
                     } else {
                         response(
-                            if (steer) step + 1 else step,
+                            if (steer) step + 3 else step,
                             request,
                             createWithTool || steer,
                         )
@@ -223,23 +224,53 @@ class GoalLifecycleFlowDeviceTest {
         }
     }
 
-    @Suppress("ReturnCount") // Scripted create, handoff and reporting phases.
-    private fun response(step: Int, request: String, create: Boolean): String {
-        if (create && step == 0) {
-            return tool(
-                "goal_create",
-                buildJsonObject {
-                    put("objective", "Answer 2 + 2")
-                    put("user_request", "Please create a goal and answer 2 + 2.")
-                },
-                step,
-            )
+    private fun creationResponse(
+        step: Int,
+        request: String,
+    ): String =
+        when (step) {
+            0 -> {
+                tool(
+                    registeredFixtureToolName(request, "tools_search"),
+                    buildJsonObject { put("query", "goal_create") },
+                    step,
+                )
+            }
+
+            1 -> {
+                tool(registeredFixtureToolName(request, "goal_get"), buildJsonObject {}, step)
+            }
+
+            2 -> {
+                tool(
+                    registeredFixtureToolName(request, "goal_create"),
+                    buildJsonObject {
+                        put("objective", "Answer 2 + 2")
+                        put("user_request", "Please create a goal and answer 2 + 2.")
+                    },
+                    step,
+                )
+            }
+
+            3 -> {
+                answer()
+            }
+
+            else -> {
+                error("Unexpected Goal creation step: $step")
+            }
         }
-        if (create && step == 1) return answer()
-        val roundStep = if (create) step - 2 else step
+
+    private fun response(
+        step: Int,
+        request: String,
+        create: Boolean,
+    ): String {
+        if (create && step in 0..3) return creationResponse(step, request)
+        val roundStep = if (create) step - 4 else step
         return when (roundStep % 3) {
             0 -> {
-                tool("goal_get", buildJsonObject {}, step)
+                tool(registeredFixtureToolName(request, "goal_get"), buildJsonObject {}, step)
             }
 
             1 -> {
@@ -255,10 +286,12 @@ class GoalLifecycleFlowDeviceTest {
                         .jsonObject
                         .getValue("content")
                         .jsonPrimitive.content
-                val result = Json.parseToJsonElement(content.removePrefix("[SUCCEEDED] ")).jsonObject
+                check(content.startsWith("[SUCCEEDED] ")) { "Expected a successful goal_get result" }
+                val payload = content.removePrefix("[SUCCEEDED] ").substringBefore("\nDelivery facts:")
+                val result = Json.parseToJsonElement(payload).jsonObject
                 val goal = findGoal(result)
                 tool(
-                    "goal_update",
+                    registeredFixtureToolName(request, "goal_update"),
                     buildJsonObject {
                         put("id", goal.getValue("id"))
                         put("expected_revision", goal.getValue("revision"))

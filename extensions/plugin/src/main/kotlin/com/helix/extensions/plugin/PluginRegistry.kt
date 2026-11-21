@@ -1,7 +1,9 @@
 package com.helix.extensions.plugin
 
 import com.helix.extensions.skills.SkillDocument
+import com.helix.tools.framework.RegisteredToolBinding
 import com.helix.tools.framework.ToolBinding
+import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.bindingOwner
@@ -71,16 +73,40 @@ class PluginRegistry(
             }
         }
 
-    /** Exposure only: recheck this owner without probing unrelated runtimes or resolving execution scope. */
-    fun modelAvailable(
-        descriptor: com.helix.tools.framework.ToolDescriptor,
-        sessionId: String,
-    ): Boolean {
-        val origin = descriptor.origin as? ToolOrigin.PluginOrigin ?: return true
-        return synchronized(catalog.mutationLock) {
-            catalog.selectionId(sessionId, origin.pluginId) != null &&
-                ready(origin.pluginId) && runtime(descriptor) != null
+    private data class ExposureProjection(
+        val state: NativePluginState,
+        val published: List<RegisteredToolBinding>,
+        val descriptors: Set<ToolDescriptor>,
+    )
+
+    /** Reuse contract validation within one pass. Selection, registration and publication remain live. */
+    fun modelAvailability(sessionId: String): (ToolDescriptor) -> Boolean {
+        val owners = mutableMapOf<String, ExposureProjection>()
+        return { descriptor ->
+            val origin = descriptor.origin as? ToolOrigin.PluginOrigin
+            origin == null ||
+                synchronized(catalog.mutationLock) {
+                    val id = origin.pluginId
+                    val factory = factories[id]
+                    val state = catalog.find(id)
+                    catalog.selectionId(sessionId, id) != null && state?.enabled == true &&
+                        factory != null && factory.registrationError() == null &&
+                        descriptor in exposureProjection(owners, state, factory).descriptors
+                }
         }
+    }
+
+    private fun exposureProjection(
+        owners: MutableMap<String, ExposureProjection>,
+        state: NativePluginState,
+        factory: HelixPlugin,
+    ): ExposureProjection {
+        val published = publishedTools(state)
+        val prior = owners[state.pluginId]
+        if (prior?.state == state && prior.published === published) return prior
+        val descriptors =
+            if (projectionMatches(state, factory, published)) published.map { it.descriptor }.toSet() else emptySet()
+        return ExposureProjection(state, published, descriptors).also { owners[state.pluginId] = it }
     }
 
     internal fun selectedRuntimes(sessionId: String): List<HelixPlugin> =
@@ -151,10 +177,7 @@ class PluginRegistry(
 
     /** Nonblocking presentation hint only; execution still resolves the authoritative binding. */
     fun hasPublishedTools(pluginId: String): Boolean =
-        toolRegistry.snapshot().any {
-            it.ref.owner ==
-                bindingOwner("plugin", pluginId)
-        }
+        toolRegistry.ownerBindings(bindingOwner("plugin", pluginId)).isNotEmpty()
 
     /** Immutable content facts; management sees installed content, execution sees selected owners. */
     fun skillDocuments(sessionId: String?): List<SkillDocument> =
@@ -246,15 +269,21 @@ class PluginRegistry(
 
     fun runtimeTarget(pluginId: String): String? = factories[pluginId]?.runtimeTarget()
 
+    private fun publishedTools(state: NativePluginState): List<RegisteredToolBinding> {
+        val owner = bindingOwner("plugin", state.pluginId)
+        return toolRegistry.ownerBindings(owner)
+    }
+
     private fun projectionMatches(
         state: NativePluginState,
         factory: HelixPlugin,
+        published: List<RegisteredToolBinding> = publishedTools(state),
     ): Boolean {
-        val expected = if (state.enabled) factory.tools().map { it.descriptor }.toSet() else emptySet()
-        val published = toolRegistry.snapshot().filter { it.ref.owner == bindingOwner("plugin", state.pluginId) }
+        val bindings = factory.tools()
+        val expected = if (state.enabled) bindings.map { it.descriptor }.toSet() else emptySet()
         return factory.manifest.version == state.version && factory.manifest.helixRuntimeId == state.runtimeId &&
             published.map { it.descriptor }.toSet() == expected &&
-            state.fingerprint == contentFingerprint(factory, factory.tools()) &&
+            state.fingerprint == contentFingerprint(factory, bindings) &&
             published.all { it.binding.implementationRevision == "${state.revision}:${state.fingerprint}" }
     }
 

@@ -20,6 +20,15 @@ interface GoalControlDao {
     @Query("SELECT * FROM goal_controls WHERE sessionId = :sessionId ORDER BY rowid DESC")
     fun bySession(sessionId: String): List<GoalControlEntity>
 
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM goal_controls c JOIN goals g ON g.id = c.goalId " +
+            "WHERE c.sessionId = :sessionId AND g.state NOT IN (:terminalStates))",
+    )
+    fun hasUnfinished(
+        sessionId: String,
+        terminalStates: Set<String>,
+    ): Boolean
+
     @Query("SELECT * FROM goal_controls WHERE pendingTurnId = :turnId")
     fun pendingForTurn(turnId: String): List<GoalControlEntity>
 

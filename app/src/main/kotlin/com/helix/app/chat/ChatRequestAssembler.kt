@@ -8,14 +8,19 @@ import com.helix.app.application.context.SystemPromptContext
 import com.helix.app.application.context.SystemPromptRequest
 import com.helix.app.application.tools.FileToolArguments
 import com.helix.app.application.tools.ToolModelSchemaProjection
+import com.helix.app.goal.GoalLifecycleService
+import com.helix.app.goal.GoalLifecycleTools
+import com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
 import com.helix.app.infrastructure.chat.AttachmentStagingSupport
 import com.helix.app.infrastructure.chat.ImageReferenceVerifier
 import com.helix.app.infrastructure.prompt.StoredSystemPromptFactsProvider
 import com.helix.app.infrastructure.prompt.packagedPromptTemplates
 import com.helix.app.provider.ProviderService
+import com.helix.app.skills.directSkillToolNames
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ContextCheckpoint
 import com.helix.core.agent.ModePolicy
+import com.helix.core.agent.PromptSection
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.RunControlConfig
 import com.helix.core.agent.ToolModeProfile
@@ -118,7 +123,7 @@ internal class ChatRequestAssembler(
                     attachmentStaging.workspaceScopeId,
                     storage.sessions.resolve(sessionId).directoryRef,
                 )
-        val tools = modelTools(sessionId, control)
+        val (tools, contents) = requestSurface(sessionId, null, control)
         val system =
             SystemPromptRequest(
                 sessionId = sessionId,
@@ -126,9 +131,7 @@ internal class ChatRequestAssembler(
                 directory = directory,
                 mode = control.mode,
                 toolNames = tools.map { it.name.value }.toSet(),
-                expert = storage.sessionExperts.forSession(sessionId),
             ).let { request ->
-                val contents = contentSections(sessionId, null, tools)
                 systemPrompt.build(request, systemPromptFacts.collect(request), contents)
             }
         val request =
@@ -182,18 +185,7 @@ internal class ChatRequestAssembler(
                     attachmentStaging.workspaceScopeId,
                     storage.sessions.resolve(sessionId).directoryRef,
                 )
-        val tools =
-            modelTools(
-                sessionId,
-                control,
-                com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
-                    .isInspection(storage.turns.resolve(turnId)),
-            )
-        val expert =
-            storage.turnRuntimeRecords
-                .find(turnId)
-                ?.let(com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec::decode)
-                ?.expert
+        val (tools, contents) = requestSurface(sessionId, turnId, control)
         val system =
             SystemPromptRequest(
                 sessionId = sessionId,
@@ -201,9 +193,7 @@ internal class ChatRequestAssembler(
                 directory = directory,
                 mode = control.mode,
                 toolNames = tools.map { it.name.value }.toSet(),
-                expert = expert,
             ).let { request ->
-                val contents = contentSections(sessionId, turnId, tools)
                 systemPrompt.build(request, systemPromptFacts.collect(request), contents)
             }
         val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory)
@@ -252,18 +242,7 @@ internal class ChatRequestAssembler(
                     attachmentStaging.workspaceScopeId,
                     storage.sessions.resolve(sessionId).directoryRef,
                 )
-        val tools =
-            modelTools(
-                sessionId,
-                control,
-                com.helix.app.infrastructure.agent.AutomaticRecoveryPolicy
-                    .isInspection(storage.turns.resolve(turnId)),
-            )
-        val expert =
-            storage.turnRuntimeRecords
-                .find(turnId)
-                ?.let(com.helix.app.infrastructure.agent.TurnRuntimeRecordCodec::decode)
-                ?.expert
+        val (tools, contents) = requestSurface(sessionId, turnId, control)
         val system =
             SystemPromptRequest(
                 sessionId = sessionId,
@@ -271,9 +250,7 @@ internal class ChatRequestAssembler(
                 directory = directory,
                 mode = control.mode,
                 toolNames = tools.map { it.name.value }.toSet(),
-                expert = expert,
             ).let { request ->
-                val contents = contentSections(sessionId, turnId, tools)
                 systemPrompt.build(request, systemPromptFacts.collect(request), contents)
             }
         val history = persistedHistory(sessionId, turnId, retryTurnId, system, directory, continuation = true)
@@ -325,27 +302,52 @@ internal class ChatRequestAssembler(
         }
 
     /** All content consumes the same actually admitted tool snapshot, never another Registry. */
-    private fun contentSections(
+    private fun requestSurface(
         sessionId: String,
         turnId: String?,
-        tools: List<ModelToolSchema>,
-    ): List<com.helix.core.agent.PromptSection> {
+        control: RunControlConfig,
+    ): Pair<List<ModelToolSchema>, List<PromptSection>> {
+        val turn = turnId?.let(storage.turns::resolve)
+        require(turn == null || turn.sessionId == sessionId)
         val snapshot = toolPipeline.pluginPromptContext?.invoke(sessionId, turnId)
-        return PromptContentContributions.sections(
+        val contributions =
             snapshot?.contributions ?: toolPipeline.skills
-                ?.let {
-                    toolPipeline.plugins?.contentContributions(it, sessionId, turnId)
-                }.orEmpty(),
-            toolPipeline.mcpDiscovery.catalog(sessionId),
-            snapshot?.readiness,
-            tools.map { it.name.value }.toSet(),
-        )
+                ?.let { toolPipeline.plugins?.contentContributions(it, sessionId, turnId) }
+                .orEmpty()
+        val goalNames =
+            if (control.mode == AgentMode.PLAN) {
+                emptySet()
+            } else {
+                val binding = turn?.takeIf { it.endedAt == null }?.let { storage.goalTurnBindings.byTurn(it.id) }
+                GoalLifecycleTools.directNames(
+                    boundRun = binding != null && storage.goalRuns.resolve(binding.runId).endedAt == null,
+                    unfinished = storage.goalControls.hasUnfinished(sessionId, GoalLifecycleService.TERMINAL),
+                    goalMode = control.mode == AgentMode.GOAL,
+                )
+            }
+        val tools =
+            modelTools(
+                sessionId,
+                control,
+                turn?.let(AutomaticRecoveryPolicy::isInspection) == true,
+                goalNames,
+                directSkillToolNames(contributions),
+            )
+        return tools to
+            PromptContentContributions.sections(
+                contributions,
+                toolPipeline.mcpDiscovery.catalog(sessionId),
+                snapshot?.readiness,
+                tools.map { it.name.value }.toSet(),
+            )
     }
 
     private fun modelTools(
         sessionId: String,
         control: RunControlConfig,
-        recoveryOnly: Boolean = false,
+        recoveryOnly: Boolean,
+        goalNames: Set<String>,
+        skillNames: Set<String>,
     ): List<ModelToolSchema> {
         val preferred =
             toolPipeline.plugins?.preferredTools(sessionId).orEmpty() +
@@ -366,25 +368,25 @@ internal class ChatRequestAssembler(
                 }.filter {
                     !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY
                 }.filter {
-                    it.name.value !in com.helix.app.goal.GoalLifecycleTools.names ||
+                    it.name.value !in GoalLifecycleTools.names ||
                         control.mode != AgentMode.PLAN
                 }
         return toolPipeline.mcpDiscovery
             .visible(
                 sessionId,
                 admitted,
-                ModelToolExposureOrder.defaultNames(preferred),
+                ModelToolExposureOrder.defaultNames(preferred, goalNames, skillNames),
             )
             // Recheck the shared disable predicate and native registration before schema projection.
             // Discovery uses the same exposure gate; execution still resolves its own authority.
-            .filter { toolPipeline.modelAvailable(sessionId, it) }
+            .filter(toolPipeline.modelAvailability(sessionId))
             .filter {
                 it.name.value !in
                     (com.helix.app.memory.MemoryTools.reads + com.helix.app.memory.MemoryTools.writes) ||
                     memory?.enabled == true
             }.filter { !recoveryOnly || it.operationClass == com.helix.core.model.ToolOperationClass.READ_ONLY }
             .filter {
-                it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
+                it.name.value !in GoalLifecycleTools.names || control.mode != AgentMode.PLAN
             }.let {
                 ModelToolExposureOrder.prioritize(
                     it,

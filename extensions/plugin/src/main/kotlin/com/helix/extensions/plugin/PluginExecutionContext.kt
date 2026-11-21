@@ -33,6 +33,7 @@ sealed interface PluginContentContribution {
         val key: com.helix.extensions.skills.SkillKey,
         val description: String,
         val owner: NativePluginState? = null,
+        val selected: Boolean = owner != null,
     ) : PluginContentContribution
 
     /** Body and already accepted user arguments must be retained/omitted together. */
@@ -76,11 +77,7 @@ fun PluginRegistry.contentContributions(
         }
         repository.list(sessionId).filter { it.enabled && it.key in eligible }.forEach { item ->
             val document = repository.inspect(item.key)
-            if (document.catalogEntry.source == com.helix.extensions.skills.SkillSource.BUILT_IN &&
-                item.key.ownerId.isEmpty() && document.hostCatalogued
-            ) {
-                add(PluginContentContribution.SkillCatalog(item.key, item.description))
-            }
+            item.catalogContribution(document)?.let(::add)
         }
         owners.forEach { (owner, plugin) ->
             plugin.scopedSkills().filter { key(it) in eligible }.forEach { document ->

@@ -22,12 +22,19 @@ import kotlin.time.Duration.Companion.seconds
 class PluginRegistryTest {
     @Test fun modelExposureWithdrawsStaleNativeDescriptorsWithoutResolvingExecutionScope() {
         val catalog = MemoryNativePluginCatalog()
-        val registry = PluginRegistry(ToolRegistry(), catalog)
+        val tools = ToolRegistry()
+        val registry = PluginRegistry(tools, catalog)
         val base = plugin("fixture")
         val descriptor = base.tools().single().descriptor
+        var constructions = 0
         var unavailable = false
         registry.register(
             object : HelixPlugin by base {
+                override fun tools(): List<ToolBinding> {
+                    constructions++
+                    return base.tools()
+                }
+
                 override fun registrationError() = "UNAVAILABLE".takeIf { unavailable }
 
                 override fun scopeFor(
@@ -36,17 +43,33 @@ class PluginRegistryTest {
                 ): com.helix.core.policy.UserScope? = error("Model exposure must not resolve execution scope")
             },
         )
-        assertFalse(registry.modelAvailable(descriptor, "session"))
+        assertFalse(registry.modelAvailability("session")(descriptor))
         catalog.selections["session" to "fixture"] = "selection"
-        assertTrue(registry.modelAvailable(descriptor, "session"))
-        assertFalse(registry.modelAvailable(descriptor.copy(description = "retired schema"), "session"))
+        val pass = registry.modelAvailability("session")
+        val before = constructions
+        repeat(10) { assertTrue(pass(descriptor)) }
+        assertEquals(before + 1, constructions)
+        assertFalse(pass(descriptor.copy(description = "retired schema")))
         unavailable = true
-        assertFalse(registry.modelAvailable(descriptor, "session"))
+        assertFalse(pass(descriptor))
         unavailable = false
-        assertTrue(registry.modelAvailable(descriptor, "session"))
+        assertTrue(pass(descriptor))
+        catalog.selections.remove("session" to "fixture")
+        assertFalse(pass(descriptor))
+        catalog.selections["session" to "fixture"] = "selection"
+        tools.replaceOwner(
+            tools
+                .snapshot()
+                .single()
+                .ref.owner,
+            emptyList(),
+        )
+        assertFalse(pass(descriptor))
+        registry.repair("fixture")
+        assertTrue(pass(descriptor))
         registry.setEnabled("fixture", false)
-        assertFalse(registry.modelAvailable(descriptor, "session"))
-        assertTrue(registry.modelAvailable(descriptor.copy(origin = ToolOrigin.BuiltInOrigin), "session"))
+        assertFalse(pass(descriptor))
+        assertTrue(registry.modelAvailability("session")(descriptor.copy(origin = ToolOrigin.BuiltInOrigin)))
     }
 
     @Test fun unselectedContextDoesNotProbeNativeRuntimeAndSelectionStillRechecksReadiness() {
