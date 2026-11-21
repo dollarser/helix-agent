@@ -2,16 +2,18 @@
 
 Owner 授权优化工具命名、参数与描述，并明确独立工具可以不带命名空间。采用按能力成组、独立操作保留清楚短名的原则，不把所有操作套入同一前缀，也不改变来源归属或执行权限。
 
+2026-10-22 的 `731180793` 按功能整理工具，将设置查询、修改和页面导航分给不同入口。当时使用 `settings.apply` 等点号名称。2026-11-16 的 `3b9172a4e` 统一了各 Provider 使用的注册名，例如 `settings_apply`，并将浏览器替换与追加输入归入 `browser_type` 的 `mode` 参数。下表列出现行名称。来源隔离与命名规则见[工具 ADR](../adr/tools/001-descriptor-contract.md#可移植工具名与来源边界2026-11-16)。
+
 ## 当前命名边界
 
 | 能力 | 当前公开名称 | 本轮处理 |
 | --- | --- | --- |
-| Goal 生命周期 | `goal_create/get/update/report` | 创建、查询、更新统一；保留原持久身份、修订、结算与用户请求要求 |
+| Goal 生命周期 | `goal_create`、`goal_get`、`goal_update`、`goal_report` | 创建、查询、更新统一；保留原持久身份、修订、结算与用户请求要求 |
 | 设置查询 | `settings_inspect` | 无参数，只返回当前设置、可选模型及能力可用性 |
 | 设置修改 | `settings_apply` | 走普通授权，只改变后续输入默认值，不改变当前 Turn |
 | 工具发现与结果 | `tools_search`, `tools_read_result` | 结果读取与发现归组；读取不重执行原工具 |
 | 用户澄清 | `ask_user` | 保留独立短名，立即返回待答；回答不替代审批 |
-| 文件和命令短名 | `read/write/edit/bash/view_image` | 保留既有公开短名及同一作用域实现/权限链路 |
+| 文件和命令短名 | `read`、`write`、`edit`、`bash`、`view_image` | 保留既有公开短名及同一作用域实现/权限链路 |
 | 浏览器、会话、技能、记忆 | `browser_*`, `session_*`, `skills_*`, `memory_*` | 保持已有清晰分组；记忆契约按操作细化 |
 | 本机、界面自动化与 Root | `device_*`, `ui_*`, `root_*` | 保持能力及来源边界，不混并为一个权限域 |
 | 外部 MCP/A2A | 各自安装来源命名空间 | 不因内置工具整理改写外部工具名称或授予权限 |
@@ -40,14 +42,12 @@ Owner 授权优化工具命名、参数与描述，并明确独立工具可以�
 
 本轮新增测试覆盖新旧目录边界、空参数查询拒绝写入/导航参数、取消/过期前不访问应用、设置未来输入结果、记忆版本 sentinel、真实文件记忆输出的 schema，以及成组/独立工具中文发现；页面测试校验补齐的权限页/会话设置页目标与现有原生路由一致。既有 Unicode 无损分页测试同时验证新结果 schema 与返回的读取工具名。
 
-完整主机门禁、主机测试及两渠道 AndroidTest APK 编译已通过。本轮没有设备或真实模型/账号验证授权，不安装、不启动设备、不发送真实服务请求；编译不等于 UI 或实际模型选用工具通过。源码不自动提交、推送或发布。
+10 月命名整理的验收限于主机检查和两渠道 AndroidTest APK 编译。后续真实模型的自然选用按任务查证：[文件定位](tasks/HXA-289.md)、[跨会话找回](tasks/HXA-295.md)。两者各有成功样本，跨任务的稳定性仍缺少证据。长任务观察、取消和显式工作区副本的余项归 [HXA-288](tasks/HXA-288.md#范围与验收要求)。
 
-
-### 本轮最终主机结果
+### 2026-10-22 命名整理的主机结果
 
 - `GRADLE_OPTS='-Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false' scripts/check-all.sh --all`：通过，含格式、detekt、Debug/Release lint、全量 JVM 测试、两渠道 Debug/Release APK、release-smoke 测试 APK 编译、依赖锁、渠道/运行时边界及文档/ADR/i18n/秘密扫描。
 - `./gradlew :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest --max-workers=1 -Dorg.gradle.parallel=false`：通过，未运行设备 instrumentation。
 - 新增 10 个测试方法，应用层方法分别在两渠道执行；Consumer Debug 1427 项、Developer Debug 1562 项，各有 5 项既有条件跳过，均零失败/错误。Android 工具模块 63 项、存储模块 243 项，均零失败/错误/跳过。
 - 初次完整门禁在 lint 分析 DevicePageToolTest 时出现内部 FIR 错误；保留原失败日志，固定源码后重跑 `:app:lintConsumerDebug` 通过，随后完整门禁通过。没有禁用 lint、跳过测试或修改基线；根因尚未确定，不把重跑通过当成已定位原因。
 - 本地忽略的 `build/tool-contracts-*` 保存日志、构建指纹与源码绑定；只在主机验收通过后记录最终候选。后续只补充文档，没有修改应用/测试源码。
-- 未进行设备验证、真实模型选用工具验证、真实账号调用或安装；没有提交、推送或发布。并行 UI 原型目录未修改。

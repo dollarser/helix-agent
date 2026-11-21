@@ -122,7 +122,7 @@ AccessibilityService 留在 Android adapter，不进入 Plugin Core 抽象，也
 
 ### 6.5 UI
 
-MVP 复用 developer 设置入口并显示“Mobile Use（开发者插件）”。用户启用系统无障碍能力、设置允许目标、开启有界操作许可并可立即 Stop；安装不授予权限。AutomationSession 与聊天 Session 不是同一个对象。
+2026-09-28 的 MVP 复用 developer 设置入口，显示“Mobile Use（开发者插件）”。当前渠道能力以[分发 ADR](../adr/platform/001-distribution.md)为准。用户须启用相应系统能力、设置允许目标并开启有界操作许可，可随时 Stop。安装插件本身不授予操作权限。AutomationSession 与聊天 Session 分别管理。
 
 HXA-232 已移除每十次动作的周期确认，并支持新快照验证后恢复**原已授权目标**；新目标仍需授权，旧节点不能复用。当前许可、锁屏与资源边界看[平台能力](android-platform-capabilities.md#5-accessibility-自动化)；具体缺口和候选见[设备就绪/可靠性专题](../research/topics/mobile-use-device-readiness-and-reliability-2026-09-29.md)。不把旧 MVP 中的人工恢复步骤当现行要求。
 

@@ -2,7 +2,7 @@
 
 本文维护功能与重构的取舍方法、证据和停止条件，不维护实时排期或第二套技术契约，也不规定每个任务必须执行同一流程。当前对话确定工作范围，[status](status.md)提供实施事实；候选身份与进入条件见[候选索引](candidate-decisions.md)。
 
-后续结构设计统一见 [Harness 第 24 节：总体架构蓝图与渐进重构路线](../architecture/harness-refactor-plan.md#24-总体架构蓝图与渐进重构路线)。完整 Turn 中立宿主已经交付；11-07 的装配、输入契约、上下文映射和 conversation-input 边界也已有有界交付，不重新排旧 R/J 迁移。后续 conversation 表现/应用层、共享 UI 与 Room 模块迁移及有界真实设备验收已收口，候选与验证限制见蓝图 24.1；不重复迁移，也不以局部通过宣布总体完成。
+选择结构工作时，先查[路线图的架构重构栏](roadmap.md#架构重构)，再用第 2 节判断要消除的依赖或补足的证据。历史方案的阶段与实际交付查 [Harness 蓝图 24.1](../architecture/harness-refactor-plan.md#241-结论基线与范围)，现行模块归属查[总体架构](../architecture/overview.md#当前目录与单一权威)。
 
 ## 1. 本次选择：有限基础收敛，而不是两个极端
 

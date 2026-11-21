@@ -31,8 +31,8 @@ Spike、host、device、真实账号、模型消费和发行证据不能互相�
 | [HXA-286](../completion-records/HXA-286.md)、[293-A](../completion-records/HXA-293.md) | 类型化内容贡献与共同预算接缝已交付 | 不重建 Registry/Compiler；新贡献类型按实际消费者进入原契约 |
 | [HXA-287](../completion-records/HXA-287.md) | A 应用命令、B round/展示接缝、C 完整中立宿主已交付，见[生命周期记录](../evidence/development/harness-stage1-lifecycle-2026-10-24.md) | 不是全部 App 已模块化；新增装配/输入/编译边界按蓝图 24 核对 |
 | [HXA-288](tasks/HXA-288.md) | Job、物理容量、视觉产物、原位执行及结果/日志已有基础；[收尾裁决](../evidence/development/architecture-closeout.md)保留有实际职责的适配 | 仅有收益的局部接缝候选；显式 snapshot 跨来源 manifest 未交付，不作为默认原位可用的前置 |
-| [HXA-289](tasks/HXA-289.md)～[292](tasks/HXA-292.md) | 文件 glob/字面量 grep 与双渠道真实 SAF 已验证；Fetch/浏览器搜索真实模型闭环、API Search 接线及 MCP 文本/二进制产物已有有界交付，见 [290](tasks/HXA-290.md)/[291](tasks/HXA-291.md)；Browser/Mobile Use 保留已交付动作基线 | SAF 自主定位受服务/登录阻断；Tavily/DeepSeek 付费实接、MCP 二进制模型消费/第三方服务仍待验。新增表单能力及 OEM/生命周期另计，不是结构前置 |
-| [HXA-295](tasks/HXA-295.md) | A/B/C 已交付，含受控跨会话查询/管理、幂等创建与明确 Queue/Steer；Debug 主机及模拟器有界通过 | 真实模型发现/选择质量与其他设备未由确定性模型夹具证明；不启动生产子 Agent、远程或自动互相唤醒 |
+| [HXA-289](tasks/HXA-289.md)～[292](tasks/HXA-292.md) | 文件 glob/字面量 grep 与双渠道真实 SAF 已验证；Fetch/浏览器搜索真实模型闭环、API Search 接线及 MCP 文本/二进制产物已有有界交付，见 [290](tasks/HXA-290.md)/[291](tasks/HXA-291.md)；Luna 自主定位和独立搜索已有单轮成功样本；表单替换/追加、选择、按键、提交、上传及 API36 动态目标防误操作已交付 | SAF 搜索效率与普遍发现质量、Tavily/DeepSeek 付费实接、MCP 二进制模型消费/第三方服务仍待验。更多真实网站上的动作选择与适用设备组合另计，不是结构前置 |
+| [HXA-295](tasks/HXA-295.md) | A/B/C 已交付，含受控跨会话查询/管理、幂等创建与明确 Queue/Steer；Debug 主机及模拟器有界通过，真实模型自然找回有一次成功样本 | 普遍发现/选择质量与其他设备组合仍待单独验证；不启动生产子 Agent、远程或自动互相唤醒 |
 | [HXA-293-B](../completion-records/HXA-293.md) | 有界 Memory/日志效果实验完成，未证明候选优于默认，见[实验记录](../evidence/development/memory-log-effect-experiment.md) | 保留默认策略；日志消费仍波动，不写作“尚未实验”或“优化已证明有效” |
 | [HXA-294](../completion-records/HXA-294.md) | 已交付切片的 A/B（含 287-C）集成证据已存在 | 按实际改动验证；不外推未实现功能、全部 Runtime/OEM 或模型效果，也不为无改动的 288 制造验收包 |
 | [总体蓝图 24](../architecture/harness-refactor-plan.md#241-结论基线与范围) | 显式依赖、ConversationComposition、输入/上下文接缝已交付；11-08 已进一步迁入 feature:conversation、ui:shared、infrastructure:storage，原 conversation-input 删除；有界 Debug/API36 通过 | 不重做会话、共享 UI、Room 迁移或原 Engine 提取；其余接缝按当前耦合选择，历史 11-07 仅编译状态不覆盖后续设备记录，也不泛称蓝图完成 |
