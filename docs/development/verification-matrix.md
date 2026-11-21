@@ -108,7 +108,7 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 
 日常设备完成测试后，移除本轮使用且已确认身份的 instrumentation/test APK；主应用和测试状态的处置遵循 AGENTS 的设备范围及当前任务限制。清理前记录包名和是否仍被其他任务使用。Helix 的测试包含语音识别 Activity 与文档 Provider 夹具，长期留在日常设备会出现在系统选择器中。遇到此类残留，应查询具体 Intent 的处理包，卸载已确认的测试包后复查，不按 `test` 字样批量删除未知应用。
 
-- 日常 `Helix_API_36` 的通过检查后 Debug 保数据覆盖安装按 [AGENTS.md](../../AGENTS.md#verification-and-device-authorization)预授权执行；其他项目模拟器验证和清理另按同一 AGENTS 的范围与强制保障条件处理，不推导真机或外部服务权限。当前任务内有效设备授权随交接保留；仅范围变化或确实缺失时补问。
+- 日常 `Helix_API_36` 在检查通过后例行覆盖安装 Debug 包；需要干净环境时，清除应用数据或重置实例也按 [AGENTS.md](../../AGENTS.md#verification-and-device-authorization)预授权执行；其他项目模拟器验证和清理另按同一 AGENTS 的范围与强制保障条件处理，不推导真机或外部服务权限。当前任务内有效设备授权随交接保留；仅范围变化或确实缺失时补问。
 - 当前开发任务内的项目模拟器验收已预授权；真机仍须所有者对当前任务、目标与范围明确授权。默认使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，只关闭自己启动的进程；所有者明确指定日常实例时按指定范围使用，数据处置遵循 AGENTS 与当前任务限制。对确实未获授权的设备，代理仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 `scripts/local/debug/YYYY-MM-DD/`，运行输出放忽略的 `build/`。
 - API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，按任务适用范围及对应设备授权执行并记录；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过；推送另按当前授权和已接受的交付条件判断，未要求的设备矩阵不自动成为所有主机切片的前置条件。
 - 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
