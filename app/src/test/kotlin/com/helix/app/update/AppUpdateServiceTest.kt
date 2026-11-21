@@ -1,7 +1,19 @@
 package com.helix.app.update
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
+import okhttp3.Call
+import okhttp3.EventListener
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.asResponseBody
+import okio.buffer
+import okio.source
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -9,8 +21,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.IOException
-import java.net.HttpURLConnection
+import java.io.InputStream
 import java.net.URI
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class AppUpdateServiceTest {
     @Test fun semanticVersionPrecedenceDoesNotUseVersionCodeOrLexicographicOrder() {
@@ -37,7 +51,7 @@ class AppUpdateServiceTest {
             assertEquals("0.0.13", result.release.versionName)
             assertEquals(1, calls.size)
             assertEquals(UPDATE_MANIFEST_URL, calls.single().toString())
-            assertTrue(response.disconnected)
+            assertTrue(response.closed)
         }
 
     @Test fun equalOlderAndUnmatchedReleasesAreNotUpdates() =
@@ -129,9 +143,14 @@ class AppUpdateServiceTest {
             }
             failure(UpdateFailure.UNSUPPORTED_VERSION) {
                 val invalid =
-                    AppUpdateService("unknown", "com.helix.agent", listOf("arm64-v8a")) {
-                        error("must not request")
-                    }
+                    AppUpdateService(
+                        "unknown",
+                        "com.helix.agent",
+                        listOf("arm64-v8a"),
+                        Call.Factory {
+                            error("must not request")
+                        },
+                    )
                 invalid.check()
             }
         }
@@ -142,8 +161,69 @@ class AppUpdateServiceTest {
         }
     }
 
-    private fun service(factory: (URI) -> HttpURLConnection) =
-        AppUpdateService("0.0.11", "com.helix.agent.developer", listOf("arm64-v8a"), factory)
+    @Test fun cancellingBlockedBodyCancelsTransportAndClosesResponse() =
+        runBlocking {
+            val blocked = BlockingBody()
+            val check = async(Dispatchers.Default) { service { Reply(input = blocked) }.check() }
+            try {
+                assertTrue(blocked.readStarted.await(5, TimeUnit.SECONDS))
+                check.cancelAndJoin()
+                assertTrue(check.isCancelled)
+                assertTrue(blocked.cancelled)
+                assertTrue(blocked.closed.await(5, TimeUnit.SECONDS))
+            } finally {
+                blocked.release.countDown()
+            }
+        }
+
+    @Test fun timeoutCancelsBlockedBodyAndReportsNetworkFailure() =
+        runBlocking {
+            val blocked = BlockingBody()
+            failure(UpdateFailure.NETWORK) { service(timeoutMillis = 500) { Reply(input = blocked) }.check() }
+            assertTrue(blocked.cancelled)
+            assertTrue(blocked.closed.await(5, TimeUnit.SECONDS))
+        }
+
+    @Test fun redirectAndFinalBodySpendOneTimeoutBudget() =
+        runBlocking {
+            val body = BlockingBody(waitMillis = 800)
+            var calls = 0
+            failure(UpdateFailure.NETWORK) {
+                service(timeoutMillis = 1200) {
+                    calls++
+                    if (calls == 1) {
+                        Reply(302, location = "/redirect", headerDelayMillis = 800)
+                    } else {
+                        Reply(input = body)
+                    }
+                }.check()
+            }
+            assertEquals(2, calls)
+            assertTrue(body.cancelled)
+            assertTrue(body.closed.await(5, TimeUnit.SECONDS))
+        }
+
+    private fun service(
+        timeoutMillis: Long = 20_000,
+        reply: (URI) -> Reply,
+    ): AppUpdateService {
+        val factory =
+            Call.Factory { request ->
+                val response = reply(request.url.toUri())
+                client
+                    .newBuilder()
+                    .addInterceptor { response.build(request) }
+                    .eventListener(
+                        object : EventListener() {
+                            override fun canceled(call: Call) {
+                                (response.input as? BlockingBody)?.cancelRead()
+                            }
+                        },
+                    ).build()
+                    .newCall(request)
+            }
+        return AppUpdateService("0.0.11", "com.helix.agent.developer", listOf("arm64-v8a"), factory, timeoutMillis)
+    }
 
     private suspend fun failure(
         reason: UpdateFailure,
@@ -159,27 +239,59 @@ class AppUpdateServiceTest {
 
     private class Reply(
         private val code: Int = 200,
-        private val body: String = "",
+        body: String = "",
         private val location: String? = null,
-    ) : HttpURLConnection(URI(UPDATE_MANIFEST_URL).toURL()) {
-        var disconnected = false
+        private val headerDelayMillis: Long = 0,
+        val input: InputStream = ByteArrayInputStream(body.toByteArray()),
+    ) {
+        var closed = false
 
-        override fun disconnect() {
-            disconnected = true
+        fun build(request: Request): Response {
+            if (headerDelayMillis > 0) Thread.sleep(headerDelayMillis)
+            val stream =
+                object : java.io.FilterInputStream(input) {
+                    override fun close() {
+                        closed = true
+                        super.close()
+                    }
+                }
+            return Response
+                .Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(code)
+                .message("test")
+                .apply { location?.let { header("Location", it) } }
+                .body(stream.source().buffer().asResponseBody())
+                .build()
+        }
+    }
+
+    private class BlockingBody(
+        private val waitMillis: Long = 5000,
+    ) : InputStream() {
+        val readStarted = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        var cancelled = false
+        val closed = CountDownLatch(1)
+
+        override fun read(): Int {
+            readStarted.countDown()
+            if (!release.await(waitMillis, TimeUnit.MILLISECONDS)) return -1
+            throw IOException("cancelled read")
         }
 
-        override fun connect() = Unit
+        fun cancelRead() {
+            cancelled = true
+            release.countDown()
+        }
 
-        override fun usingProxy() = false
-
-        override fun getResponseCode() = code
-
-        override fun getInputStream() = ByteArrayInputStream(body.toByteArray())
-
-        override fun getContentLengthLong() = -1L
-
-        override fun getHeaderField(name: String): String? = if (name == "Location") location else null
+        override fun close() {
+            closed.countDown()
+        }
     }
+
+    private val client = OkHttpClient()
 
     private fun manifest(vararg rows: String) = """{"schemaVersion":1,"releases":[${rows.joinToString(",")}]}"""
 

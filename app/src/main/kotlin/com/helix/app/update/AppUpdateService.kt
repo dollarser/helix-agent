@@ -3,12 +3,21 @@ package com.helix.app.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.net.HttpURLConnection
 import java.net.URI
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 internal sealed interface UpdateCheck {
     data object Current : UpdateCheck
@@ -31,7 +40,8 @@ internal class AppUpdateService(
     private val versionName: String,
     private val packageName: String,
     private val supportedAbis: List<String>,
-    private val connectionFactory: (URI) -> HttpURLConnection = { it.toURL().openConnection() as HttpURLConnection },
+    private val client: Call.Factory = updateClient,
+    private val timeoutMillis: Long = 20_000,
 ) {
     suspend fun check(): UpdateCheck =
         withContext(Dispatchers.IO) {
@@ -69,61 +79,101 @@ internal class AppUpdateService(
         }
 
     private suspend fun readManifest(): String =
-        withTimeoutOrNull(20_000) { fetchManifest() } ?: throw UpdateCheckException(UpdateFailure.NETWORK)
+        withTimeoutOrNull(timeoutMillis) { fetchManifest() } ?: throw UpdateCheckException(UpdateFailure.NETWORK)
 
-    @Suppress("ThrowsCount") // Preserve distinct HTTP, redirect and manifest failure states.
+    private sealed interface ManifestReply {
+        data class Body(
+            val text: String,
+        ) : ManifestReply
+
+        data class Redirect(
+            val location: String,
+        ) : ManifestReply
+    }
+
     private suspend fun fetchManifest(): String {
         var url = URI(UPDATE_MANIFEST_URL)
         repeat(5) {
             currentCoroutineContext().ensureActive()
             requireSecureModelScope(url)
-            val call = connectionFactory(url)
-            try {
-                call.connectTimeout = 10_000
-                call.readTimeout = 10_000
-                call.instanceFollowRedirects = false
-                call.useCaches = false
-                call.setRequestProperty("Accept", "application/json")
-                call.setRequestProperty("Cache-Control", "no-cache")
-                when (call.responseCode) {
-                    200 -> {
-                        return readBounded(call)
-                    }
-
-                    301, 302, 303, 307, 308 -> {
-                        val location =
-                            call.getHeaderField("Location")
-                                ?: throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST)
-                        url =
-                            try {
-                                url.resolve(location)
-                            } catch (_: IllegalArgumentException) {
-                                throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST)
-                            }
-                    }
-
-                    404 -> {
-                        throw UpdateCheckException(UpdateFailure.NOT_PUBLISHED)
-                    }
-
-                    else -> {
-                        throw UpdateCheckException(UpdateFailure.NETWORK)
-                    }
+            val request =
+                Request
+                    .Builder()
+                    .url(url.toString())
+                    .header("Accept", "application/json")
+                    .header("Cache-Control", "no-cache")
+                    .build()
+            when (val reply = execute(client.newCall(request))) {
+                is ManifestReply.Body -> {
+                    return reply.text
                 }
-            } finally {
-                call.disconnect()
+
+                is ManifestReply.Redirect -> {
+                    url =
+                        try {
+                            url.resolve(reply.location)
+                        } catch (_: IllegalArgumentException) {
+                            throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST)
+                        }
+                }
             }
         }
         throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST)
     }
 
-    private suspend fun readBounded(call: HttpURLConnection): String {
-        if (call.contentLengthLong > MAX_MANIFEST_BYTES) throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST)
-        return call.inputStream.use { input ->
+    private suspend fun execute(call: Call): ManifestReply =
+        suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(
+                        call: Call,
+                        e: IOException,
+                    ) {
+                        continuation.resumeWithException(e)
+                    }
+
+                    override fun onResponse(
+                        call: Call,
+                        response: Response,
+                    ) {
+                        try {
+                            continuation.resume(response.use(::manifestReply))
+                        } catch (failure: IOException) {
+                            continuation.resumeWithException(failure)
+                        }
+                    }
+                },
+            )
+        }
+
+    private fun manifestReply(response: Response): ManifestReply =
+        when (response.code) {
+            200 -> {
+                ManifestReply.Body(readBounded(response.body))
+            }
+
+            301, 302, 303, 307, 308 -> {
+                ManifestReply.Redirect(
+                    response.header("Location") ?: throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST),
+                )
+            }
+
+            404 -> {
+                throw UpdateCheckException(UpdateFailure.NOT_PUBLISHED)
+            }
+
+            else -> {
+                throw UpdateCheckException(UpdateFailure.NETWORK)
+            }
+        }
+
+    private fun readBounded(body: ResponseBody): String {
+        if (body.contentLength() > MAX_MANIFEST_BYTES) throw UpdateCheckException(UpdateFailure.INVALID_MANIFEST)
+        return body.byteStream().use { input ->
             val output = ByteArrayOutputStream()
             val buffer = ByteArray(8192)
             while (true) {
-                currentCoroutineContext().ensureActive()
                 val count = input.read(buffer)
                 if (count < 0) break
                 if (output.size() + count >
@@ -148,6 +198,15 @@ internal class AppUpdateService(
     }
 
     private companion object {
+        val updateClient =
+            OkHttpClient
+                .Builder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .retryOnConnectionFailure(false)
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .build()
         const val MAX_MANIFEST_BYTES = 64 * 1024
     }
 }
